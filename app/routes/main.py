@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash
+from app.models.task import Task
 
 # 建立 Blueprint 實例，用於將此模組的路由註冊到 Flask App
 main_bp = Blueprint('main', __name__)
@@ -15,8 +16,18 @@ def index():
     回傳:
         index.html 模板渲染的網頁內容
     """
-    # 骨架暫留，待實作階段填入邏輯
-    pass
+    status = request.args.get('status', 'all')
+    keyword = request.args.get('keyword', '')
+    
+    # 呼叫 Model 取得篩選與搜尋後的任務清單
+    tasks = Task.get_all(status=status, keyword=keyword)
+    
+    return render_template(
+        'index.html', 
+        tasks=tasks, 
+        current_status=status, 
+        current_keyword=keyword
+    )
 
 @main_bp.route('/tasks/add', methods=['POST'])
 def add_task():
@@ -30,8 +41,21 @@ def add_task():
     回傳:
         儲存完成後，HTTP 302 重導向回首頁 (/)
     """
-    # 骨架暫留，待實作階段填入邏輯
-    pass
+    title = request.form.get('title', '').strip()
+    description = request.form.get('description', '').strip()
+    
+    # 基本的輸入驗證
+    if not title:
+        flash('任務標題為必填欄位！', 'error')
+        return redirect(url_for('main.index'))
+        
+    task_id = Task.create(title, description)
+    if task_id:
+        flash('任務新增成功！', 'success')
+    else:
+        flash('新增任務時發生資料庫錯誤。', 'error')
+        
+    return redirect(url_for('main.index'))
 
 @main_bp.route('/tasks/<int:task_id>/edit', methods=['GET', 'POST'])
 def edit_task(task_id):
@@ -46,8 +70,28 @@ def edit_task(task_id):
         GET: edit.html 模板渲染的網頁內容
         POST: 更新完成後，HTTP 302 重導向回首頁 (/)
     """
-    # 骨架暫留，待實作階段填入邏輯
-    pass
+    task = Task.get_by_id(task_id)
+    if not task:
+        flash('找不到該筆任務！', 'error')
+        return redirect(url_for('main.index'))
+        
+    if request.method == 'POST':
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        # 驗證標題是否為空
+        if not title:
+            flash('任務標題為必填欄位！', 'error')
+            return render_template('edit.html', task=task)
+            
+        success = Task.update(task_id, title, description)
+        if success:
+            flash('任務更新成功！', 'success')
+        else:
+            flash('更新任務時發生資料庫錯誤。', 'error')
+        return redirect(url_for('main.index'))
+        
+    return render_template('edit.html', task=task)
 
 @main_bp.route('/tasks/<int:task_id>/delete', methods=['POST'])
 def delete_task(task_id):
@@ -60,8 +104,12 @@ def delete_task(task_id):
     回傳:
         刪除完成後，HTTP 302 重導向回首頁 (/)
     """
-    # 骨架暫留，待實作階段填入邏輯
-    pass
+    success = Task.delete(task_id)
+    if success:
+        flash('任務已成功刪除！', 'success')
+    else:
+        flash('刪除任務時發生錯誤。', 'error')
+    return redirect(url_for('main.index'))
 
 @main_bp.route('/tasks/<int:task_id>/toggle', methods=['POST'])
 def toggle_task(task_id):
@@ -75,7 +123,26 @@ def toggle_task(task_id):
     回傳:
         JSON 格式回饋:
         - 成功: { "success": true, "new_status": "completed" / "pending" }
-        - 失敗: { "success": false, "error": "錯誤原因" }, 狀態碼 404/400
+        - 失敗: { "success": false, "error": "錯誤原因" }, 狀態碼 404/500
     """
-    # 骨架暫留，待實作階段填入邏輯
-    pass
+    task = Task.get_by_id(task_id)
+    if not task:
+        return jsonify({
+            'success': False,
+            'error': '找不到該筆任務'
+        }), 404
+        
+    # 計算新狀態 (將 pending 改為 completed，反之亦然)
+    new_status = 'completed' if task.status == 'pending' else 'pending'
+    
+    success = Task.update_status(task_id, new_status)
+    if success:
+        return jsonify({
+            'success': True,
+            'new_status': new_status
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': '更新狀態時發生資料庫錯誤'
+        }), 500
