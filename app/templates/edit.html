@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="glass-card">
+            <!-- 標題 -->
+            <h3 class="card-title-neon mb-4 text-center">
+                <i class="fa-solid fa-pen-to-square me-2 text-purple"></i>編輯任務內容
+            </h3>
+
+            <!-- 編輯表單 -->
+            <form action="{{ url_for('main.edit_task', task_id=task.id) }}" method="POST" class="needs-validation" novalidate>
+                <div class="mb-3">
+                    <label for="title" class="form-label custom-label">任務標題 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control custom-input" id="title" name="title" value="{{ task.title }}" required maxlength="100">
+                    <div class="invalid-feedback">請輸入任務標題。</div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="description" class="form-label custom-label">內容描述</label>
+                    <textarea class="form-control custom-input" id="description" name="description" rows="6" placeholder="記錄這項任務的詳細資訊...">{{ task.description }}</textarea>
+                </div>
+
+                <!-- 按鈕列 -->
+                <div class="d-flex justify-content-between gap-3">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-neon-cancel flex-grow-1 text-center">
+                        <i class="fa-solid fa-xmark me-2"></i>取消變更
+                    </a>
+                    <button type="submit" class="btn btn-neon-save flex-grow-1">
+                        <i class="fa-solid fa-circle-check me-2"></i>儲存更新
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

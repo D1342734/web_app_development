@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- 左側：快速新增任務表單 -->
+    <div class="col-lg-4">
+        <div class="glass-card sticky-form">
+            <h3 class="card-title-neon mb-4">
+                <i class="fa-solid fa-plus-circle me-2 text-cyan"></i>建立新任務
+            </h3>
+            
+            <form action="{{ url_for('main.add_task') }}" method="POST" class="needs-validation" novalidate>
+                <div class="mb-3">
+                    <label for="title" class="form-label custom-label">任務標題 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control custom-input" id="title" name="title" placeholder="例如：完成 Python 專案報告" required maxlength="100">
+                    <div class="invalid-feedback">請輸入任務標題。</div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="description" class="form-label custom-label">內容描述</label>
+                    <textarea class="form-control custom-input" id="description" name="description" rows="4" placeholder="詳細紀錄這項任務的具體內容與步驟..." maxlength="500"></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-neon-add w-100">
+                    <i class="fa-solid fa-paper-plane me-2"></i>新增任務
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 右側：搜尋、篩選與任務清單 -->
+    <div class="col-lg-8">
+        <!-- 搜尋與篩選列 -->
+        <div class="glass-card mb-4">
+            <form action="{{ url_for('main.index') }}" method="GET" class="row g-3 align-items-center">
+                <!-- 狀態篩選 Tabs -->
+                <input type="hidden" name="status" id="status-filter-value" value="{{ current_status }}">
+                
+                <div class="col-md-7">
+                    <div class="filter-tabs d-flex">
+                        <button type="button" class="filter-tab-btn {% if current_status == 'all' or not current_status %}active{% endif %}" onclick="changeFilter('all')">
+                            全部 <span class="badge rounded-pill bg-dark-opacity ms-1">{{ tasks|length if current_status == 'all' else '' }}</span>
+                        </button>
+                        <button type="button" class="filter-tab-btn {% if current_status == 'pending' %}active{% endif %}" onclick="changeFilter('pending')">
+                            待處理
+                        </button>
+                        <button type="button" class="filter-tab-btn {% if current_status == 'completed' %}active{% endif %}" onclick="changeFilter('completed')">
+                            已完成
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 關鍵字搜尋框 -->
+                <div class="col-md-5">
+                    <div class="input-group search-group">
+                        <span class="input-group-text search-icon-addon"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input type="text" class="form-control custom-input search-input" name="keyword" placeholder="搜尋任務標題或內容..." value="{{ current_keyword }}">
+                        {% if current_keyword %}
+                            <a href="{{ url_for('main.index', status=current_status) }}" class="btn-clear-search" title="清除搜尋"><i class="fa-solid fa-xmark"></i></a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-neon-search">搜尋</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 任務列表展示區 -->
+        <div class="tasks-container">
+            {% if tasks %}
+                <div class="tasks-list">
+                    {% for task in tasks %}
+                        <div class="task-card glass-card {% if task.status == 'completed' %}task-completed{% endif %}" id="task-card-{{ task.id }}">
+                            <div class="task-card-body d-flex align-items-start">
+                                <!-- Checkbox 狀態切換器 -->
+                                <div class="task-checkbox-wrapper me-3">
+                                    <label class="custom-checkbox">
+                                        <input type="checkbox" class="task-toggle-checkbox" data-task-id="{{ task.id }}" {% if task.status == 'completed' %}checked{% endif %}>
+                                        <span class="checkmark"></span>
+                                    </label>
+                                </div>
+                                
+                                <!-- 任務內容 -->
+                                <div class="task-details flex-grow-1 min-w-0">
+                                    <h4 class="task-title text-truncate" id="task-title-{{ task.id }}">{{ task.title }}</h4>
+                                    {% if task.description %}
+                                        <p class="task-description text-break">{{ task.description }}</p>
+                                    {% endif %}
+                                    <div class="task-meta d-flex align-items-center mt-2 text-white-40 small">
+                                        <i class="fa-regular fa-clock me-1"></i>
+                                        <span>{{ task.created_at }}</span>
+                                        <span class="mx-2">•</span>
+                                        <span class="status-indicator-badge {% if task.status == 'completed' %}status-completed{% else %}status-pending{% endif %}" id="task-badge-{{ task.id }}">
+                                            {% if task.status == 'completed' %}已完成{% else %}待處理{% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- 操作按鈕群組 -->
+                                <div class="task-actions ms-3 d-flex align-items-center">
+                                    <a href="{{ url_for('main.edit_task', task_id=task.id) }}" class="btn btn-action-edit me-2" title="編輯任務">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </a>
+                                    <form action="{{ url_for('main.delete_task', task_id=task.id) }}" method="POST" onsubmit="return confirmDelete(event, '{{ task.title }}');" class="d-inline">
+                                        <button type="submit" class="btn btn-action-delete" title="刪除任務">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <!-- 無任務時的 Empty State -->
+                <div class="glass-card empty-state text-center py-5">
+                    <div class="empty-icon mb-3">
+                        <i class="fa-solid fa-clipboard-list text-white-20 fs-1"></i>
+                    </div>
+                    <h5 class="text-white-80">目前沒有任務</h5>
+                    <p class="text-white-40 small mb-0">
+                        {% if current_keyword or (current_status and current_status != 'all') %}
+                            沒有符合篩選或搜尋條件的任務，請嘗試清除條件。
+                        {% else %}
+                            這裏還空空的，快在左側新增您的第一筆任務吧！
+                        {% endif %}
+                    </p>
+                    {% if current_keyword or (current_status and current_status != 'all') %}
+                        <a href="{{ url_for('main.index') }}" class="btn btn-sm btn-neon-outline mt-3">清除所有篩選</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    function changeFilter(status) {
+        document.getElementById('status-filter-value').value = status;
+        document.getElementById('status-filter-value').form.submit();
+    }
+</script>
+{% endblock %}
